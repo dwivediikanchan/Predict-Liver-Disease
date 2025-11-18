@@ -24,11 +24,7 @@ def train_model(df):
 
     target_col = "category"
 
-    if target_col not in df.columns:
-        st.error(f"❌ Target column '{target_col}' not found in dataset")
-        return None, None, None
-
-    # Encode target column (category)
+    # Encode target column
     le = LabelEncoder()
     df[target_col] = le.fit_transform(df[target_col].astype(str))
 
@@ -36,21 +32,21 @@ def train_model(df):
     X = df.drop(target_col, axis=1)
     y = df[target_col]
 
-    # Convert all object columns in X to numeric if they exist
+    # Encode any categorical features (none in your dataset except target)
     for col in X.select_dtypes(include="object").columns:
         X[col] = LabelEncoder().fit_transform(X[col].astype(str))
 
-    # Ensure all features numeric
+    # Convert all features to numeric
     X = X.apply(pd.to_numeric, errors="coerce")
 
-    # Fill missing values
+    # Fill missing
     X = X.fillna(X.mean())
 
-    # Scale features
+    # Scale
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
-    # Split data
+    # Split
     X_train, X_test, y_train, y_test = train_test_split(
         X_scaled, y, test_size=0.2, random_state=42, stratify=y
     )
@@ -63,51 +59,123 @@ def train_model(df):
     )
     model.fit(X_train, y_train)
 
-    return model, scaler, list(X.columns)
+    return model, scaler, list(X.columns), le
 
-model, scaler, feature_names = train_model(df)
+
+model, scaler, feature_names, label_encoder = train_model(df)
 
 # -----------------------------------------
-# STREAMLIT UI
+# STREAMLIT UI DESIGN
 # -----------------------------------------
-st.set_page_config(page_title="Liver Disease Prediction", layout="centered")
 
-st.title("🧬 Liver Disease Prediction App")
-st.write("Enter patient details below to predict liver disease category.")
+st.set_page_config(
+    page_title="Liver Disease Prediction",
+    layout="wide",
+    page_icon="🧬"
+)
 
-user_data = {}
+# Sidebar
+st.sidebar.title("🧭 Navigation")
+page = st.sidebar.radio("Go to", ["🏠 Home", "🩺 Prediction", "📊 About Model"])
 
-st.subheader("Patient Input Features")
+# Add styling
+st.markdown("""
+<style>
+    .main-title {
+        text-align: center;
+        font-size: 38px;
+        font-weight: bold;
+        padding: 10px;
+        color: #3b82f6;
+    }
+    .sub-title {
+        font-size: 22px;
+        font-weight:600;
+        margin-top: 15px;
+    }
+    .result-success {
+        background-color: #d1fae5;
+        padding: 15px;
+        border-radius: 10px;
+        color: #065f46;
+        font-size: 20px;
+    }
+    .result-danger {
+        background-color: #fee2e2;
+        padding: 15px;
+        border-radius: 10px;
+        color: #991b1b;
+        font-size: 20px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-# Create number inputs for all feature columns
-for col in feature_names:
-    user_data[col] = st.number_input(
-        f"{col.replace('_', ' ').title()}",
-        min_value=0.0,
-        step=0.1
-    )
+# -----------------------------------------
+# HOME PAGE
+# -----------------------------------------
+if page == "🏠 Home":
+    st.markdown("<div class='main-title'>🧬 Liver Disease Prediction System</div>", unsafe_allow_html=True)
 
-# Prediction button
-if st.button("Predict"):
+    st.write("""
+    This interactive app predicts liver disease categories using machine learning.
 
-    # Convert dictionary to DataFrame row
-    input_df = pd.DataFrame([user_data])
+    ### Features:
+    - 📌 User-friendly UI  
+    - 📊 Automatic feature scaling  
+    - 🤖 Random Forest model  
+    - 🎯 Instant prediction  
+    """)
 
-    # Encode any categorical columns
-    for col in input_df.select_dtypes(include="object").columns:
-        input_df[col] = LabelEncoder().fit_transform(input_df[col].astype(str))
+# -----------------------------------------
+# PREDICTION PAGE
+# -----------------------------------------
+elif page == "🩺 Prediction":
+    st.markdown("<div class='main-title'>Patient Data Input</div>", unsafe_allow_html=True)
 
-    # Fill missing values
-    input_df = input_df.fillna(input_df.mean())
+    st.markdown("<div class='sub-title'>Enter patient medical values</div>", unsafe_allow_html=True)
 
-    # Scale input
-    input_scaled = scaler.transform(input_df)
+    # Two-column layout
+    col1, col2 = st.columns(2)
+    user_data = {}
 
-    # Make prediction
-    pred = model.predict(input_scaled)[0]
+    for i, col in enumerate(feature_names):
+        if i % 2 == 0:
+            user_data[col] = col1.number_input(
+                f"{col.replace('_', ' ').title()}",
+                min_value=0.0,
+                step=0.1
+            )
+        else:
+            user_data[col] = col2.number_input(
+                f"{col.replace('_', ' ').title()}",
+                min_value=0.0,
+                step=0.1
+            )
 
-    # Map back to original label
-    categories = df["category"].unique().tolist()
-    decoded_label = categories[pred]
+    st.markdown("---")
 
-    st.success(f"### 🩺 Prediction: **{decoded_label}**")
+    if st.button("🔍 Predict Result", use_container_width=True):
+
+        input_df = pd.DataFrame([user_data])
+
+        # Encode & scale input
+        input_df = input_df.apply(pd.to_numeric, errors='coerce').fillna(input_df.mean())
+        input_scaled = scaler.transform(input_df)
+
+        pred = model.predict(input_scaled)[0]
+        pred_label = label_encoder.inverse_transform([pred])[0]
+
+        # Display result
+        if pred_label.lower() == "healthy":
+            st.markdown(f"<div class='result-success'>🟢 Prediction: {pred_label}</div>", unsafe_allow_html=True)
+        else:
+            st.markdown(f"<div class='result-danger'>🔴 Prediction: {pred_label}</div>", unsafe_allow_html=True)
+
+        st.subheader("📋 Patient Summary")
+        st.json(user_data)
+
+# -----------------------------------------
+# ABOUT MODEL
+# -----------------------------------------
+elif page == "📊 About Model":
+    st.markdown("<div class='main-title'>📊 Model Information</div>", unsafe_allow_html=True
