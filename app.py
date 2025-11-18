@@ -1,76 +1,113 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 
-# -----------------------------
-# Load & Train Model
-# -----------------------------
+# -----------------------------------------
+# LOAD DATA
+# -----------------------------------------
 @st.cache_data
 def load_data():
-    df = pd.read_csv("project-data.csv", sep=';')
+    df = pd.read_csv("project-data.csv", sep=";")
     df.columns = df.columns.str.strip()
     return df
 
+df = load_data()
+
+# -----------------------------------------
+# TRAIN MODEL
+# -----------------------------------------
 @st.cache_resource
 def train_model(df):
-    # Encoding Target
+
+    target_col = "category"
+
+    if target_col not in df.columns:
+        st.error(f"❌ Target column '{target_col}' not found in dataset")
+        return None, None, None
+
+    # Encode target column (category)
     le = LabelEncoder()
-    df['category'] = le.fit_transform(df['category'])
+    df[target_col] = le.fit_transform(df[target_col].astype(str))
 
-    # Splitting X & Y
-    X = df.drop('category', axis=1)
-    y = df['category']
+    # Split X and y
+    X = df.drop(target_col, axis=1)
+    y = df[target_col]
 
-    # Scaling
+    # Convert all object columns in X to numeric if they exist
+    for col in X.select_dtypes(include="object").columns:
+        X[col] = LabelEncoder().fit_transform(X[col].astype(str))
+
+    # Ensure all features numeric
+    X = X.apply(pd.to_numeric, errors="coerce")
+
+    # Fill missing values
+    X = X.fillna(X.mean())
+
+    # Scale features
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
-    # Train-Test Split
+    # Split data
     X_train, X_test, y_train, y_test = train_test_split(
-        X_scaled, y, test_size=0.2, stratify=y, random_state=42
+        X_scaled, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    # Model
+    # Train model
     model = RandomForestClassifier(
         n_estimators=300,
-        max_depth=12,
+        max_depth=10,
         random_state=42
     )
     model.fit(X_train, y_train)
 
     return model, scaler, list(X.columns)
 
-# Load Data & Train Model
-df = load_data()
 model, scaler, feature_names = train_model(df)
 
-# -----------------------------
-# Streamlit UI
-# -----------------------------
-st.set_page_config(page_title="Liver Disease Prediction App", layout="centered")
+# -----------------------------------------
+# STREAMLIT UI
+# -----------------------------------------
+st.set_page_config(page_title="Liver Disease Prediction", layout="centered")
 
-st.title("🧬 Liver Disease Prediction")
-st.markdown("Enter patient details below to check whether they have liver disease.")
+st.title("🧬 Liver Disease Prediction App")
+st.write("Enter patient details below to predict liver disease category.")
 
-# Create Input Form
-user_inputs = {}
+user_data = {}
 
+st.subheader("Patient Input Features")
+
+# Create number inputs for all feature columns
 for col in feature_names:
-    user_inputs[col] = st.number_input(
-        f"Enter {col}",
+    user_data[col] = st.number_input(
+        f"{col.replace('_', ' ').title()}",
         min_value=0.0,
         step=0.1
     )
 
+# Prediction button
 if st.button("Predict"):
-    user_data = np.array(list(user_inputs.values())).reshape(1, -1)
-    user_data_scaled = scaler.transform(user_data)
-    prediction = model.predict(user_data_scaled)[0]
 
-    if prediction == 1:
-        st.error("⚠️ **The patient is likely to have Liver Disease**")
-    else:
-        st.success("✅ **The patient is NOT likely to have Liver Disease**")
+    # Convert dictionary to DataFrame row
+    input_df = pd.DataFrame([user_data])
+
+    # Encode any categorical columns
+    for col in input_df.select_dtypes(include="object").columns:
+        input_df[col] = LabelEncoder().fit_transform(input_df[col].astype(str))
+
+    # Fill missing values
+    input_df = input_df.fillna(input_df.mean())
+
+    # Scale input
+    input_scaled = scaler.transform(input_df)
+
+    # Make prediction
+    pred = model.predict(input_scaled)[0]
+
+    # Map back to original label
+    categories = df["category"].unique().tolist()
+    decoded_label = categories[pred]
+
+    st.success(f"### 🩺 Prediction: **{decoded_label}**")
