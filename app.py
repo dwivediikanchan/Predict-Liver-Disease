@@ -7,294 +7,200 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 
-# ----------------------
-# Config
-# ----------------------
+
+# ---------------------- CONFIG ----------------------
 DATA_PATH = "project-data.csv"
-LOCAL_BG_FILENAME = "liver_bg.jpg"  # optional: place your chosen image here
-FALLBACK_BG_URL = "https://images.unsplash.com/photo-1582719478250-0f6a4f6b4c7a?q=80&w=1400&auto=format&fit=crop&ixlib=rb-4.0.3&s=1b6f9b0b6f9c4e8b1f1f0f1e0f1e1f1f"  # tasteful medical-style image (Unsplash)
+LOCAL_BG_FILENAME = "liver_bg.jpg"
+FALLBACK_BG_URL = "https://images.unsplash.com/photo-1582719478250-0f6a4f6b4c7a?q=80&w=1400&auto=format&fit=crop"
+
 
 st.set_page_config(page_title="Liver Disease Predictor", page_icon="🧬", layout="wide")
 
-# ----------------------
-# Helpers
-# ----------------------
-def get_background_css(image_url=None, local_image_path=None, blur_px=0):
-    """
-    Returns CSS to place an image as the app background.
-    If local_image_path exists it will be encoded and used; otherwise image_url is used.
-    """
-    img_data = None
-    if local_image_path:
-        try:
-            with open(local_image_path, "rb") as f:
-                img_data = f.read()
-        except Exception:
-            img_data = None
 
-    if img_data:
-        b64 = base64.b64encode(img_data).decode()
-        url = f"data:image/jpg;base64,{b64}"
-    else:
-        url = image_url
+# ---------------------- BACKGROUND IMAGE ----------------------
+def apply_background():
+    try:
+        with open(LOCAL_BG_FILENAME, "rb") as f:
+            data = f.read()
+            encoded = base64.b64encode(data).decode()
+            bg_url = f"data:image/jpg;base64,{encoded}"
+    except:
+        bg_url = FALLBACK_BG_URL
 
     css = f"""
     <style>
     .stApp {{
-        background-image: url("{url}");
+        background-image: url("{bg_url}");
         background-size: cover;
         background-position: center;
         background-attachment: fixed;
-        backdrop-filter: blur({blur_px}px);
     }}
-    /* Add a translucent overlay so text is readable */
-    .app-overlay {{
-        background: rgba(255,255,255,0.82);
-        padding: 18px;
-        border-radius: 12px;
+
+    .main-card {{
+        background: rgba(255,255,255,0.85);
+        padding: 25px;
+        border-radius: 14px;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.10);
     }}
-    .card {{
-        background: rgba(255,255,255,0.92);
-        padding: 18px;
-        border-radius: 10px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+
+    /* Attractive Sidebar */
+    [data-testid="stSidebar"] {{
+        background: linear-gradient(180deg, #670000, #300000);
+        color: white;
     }}
+
+    [data-testid="stSidebar"] * {{
+        color: white !important;
+        font-size: 16px;
+    }}
+
+    .sidebar-title {{
+        font-size: 28px;
+        font-weight: bold;
+        text-align: center;
+        padding-bottom: 15px;
+    }}
+
+    .sidebar-item {{
+        font-size: 18px !important;
+        padding: 6px 0px;
+    }}
+
     .result-good {{
-        background-color: #e6ffed;
-        color: #064e3b;
-        padding: 14px;
-        border-radius: 8px;
-        font-weight: 700;
+        background:#e5ffe9;
+        padding:14px;
+        border-radius:10px;
+        color:#064e3b;
+        font-weight:bold;
+        text-align:center;
+        font-size:20px;
     }}
+
     .result-bad {{
-        background-color: #fff1f2;
-        color: #7f1d1d;
-        padding: 14px;
-        border-radius: 8px;
-        font-weight: 700;
+        background:#ffe5e5;
+        padding:14px;
+        border-radius:10px;
+        color:#7f1d1d;
+        font-weight:bold;
+        text-align:center;
+        font-size:20px;
     }}
     </style>
     """
-    return css
+    st.markdown(css, unsafe_allow_html=True)
 
+
+apply_background()
+
+
+# ---------------------- LOAD DATA & TRAIN MODEL ----------------------
 @st.cache_data
-def load_data(path=DATA_PATH):
-    df = pd.read_csv(path, sep=";")
+def load_data():
+    df = pd.read_csv(DATA_PATH, sep=";")
     df.columns = df.columns.str.strip()
     return df
 
+
 @st.cache_resource
 def train_model(df):
-    """
-    Cleans dataframe, encodes target, trains RandomForest and returns:
-    - model, scaler, feature_names, label_encoder, class_names, metrics_dict
-    """
     df = df.copy()
-    target_col = "category"
-    if target_col not in df.columns:
-        raise ValueError(f"Target column '{target_col}' not found in dataset. Available columns: {df.columns.tolist()}")
 
-    # Encode target labels (store mapping)
+    target = "category"
     le = LabelEncoder()
-    df[target_col] = le.fit_transform(df[target_col].astype(str))
-    class_names = list(le.classes_)
+    df[target] = le.fit_transform(df[target].astype(str))
 
-    # Features
-    X = df.drop(columns=[target_col])
-    y = df[target_col]
+    X = df.drop(columns=[target])
+    y = df[target]
 
-    # If any object columns in features -> label encode them
-    for c in X.select_dtypes(include=["object"]).columns:
-        X[c] = LabelEncoder().fit_transform(X[c].astype(str))
+    # Encode any object columns
+    for col in X.select_dtypes(include="object"):
+        X[col] = LabelEncoder().fit_transform(X[col].astype(str))
 
-    # Force numeric, coerce errors -> NaN
-    X = X.apply(pd.to_numeric, errors="coerce")
+    X = X.apply(pd.to_numeric, errors="coerce").fillna(X.mean())
 
-    # Fill NaNs with column mean
-    X = X.fillna(X.mean())
-
-    # Scale
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
-    # Train/test split
     X_train, X_test, y_train, y_test = train_test_split(
         X_scaled, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    # Model - tuned reasonably for small/medium dataset
     model = RandomForestClassifier(n_estimators=300, max_depth=12, random_state=42)
     model.fit(X_train, y_train)
 
-    # Optional quick metrics
-    train_score = model.score(X_train, y_train)
-    test_score = model.score(X_test, y_test)
+    return model, scaler, list(X.columns), le
 
-    metrics = {"train_score": float(train_score), "test_score": float(test_score)}
 
-    return model, scaler, list(X.columns), le, class_names, metrics
+df = load_data()
+model, scaler, features, label_encoder = train_model(df)
 
-# ----------------------
-# Load & Train (with graceful error handling)
-# ----------------------
-try:
-    df = load_data()
-except Exception as e:
-    st.error(f"Could not load data from `{DATA_PATH}`. Error: {e}")
-    st.stop()
 
-try:
-    model, scaler, feature_names, label_encoder, class_names, metrics = train_model(df)
-except Exception as e:
-    st.error(f"Error during model training: {e}")
-    st.stop()
+# ---------------------- SIDEBAR ----------------------
+st.sidebar.markdown("<div class='sidebar-title'>🧬 Liver AI</div>", unsafe_allow_html=True)
 
-# ----------------------
-# Apply background (local fallback to remote)
-# ----------------------
-st.markdown(get_background_css(image_url=FALLBACK_BG_URL, local_image_path=LOCAL_BG_FILENAME, blur_px=2), unsafe_allow_html=True)
+page = st.sidebar.radio(
+    "",
+    ["🏠 Home", "🔍 Predict", "📊 Model Info"],
+    label_visibility="collapsed"
+)
 
-# ----------------------
-# Layout & Navigation
-# ----------------------
-st.sidebar.title("🧭 Navigation")
-page = st.sidebar.radio("Choose page", ["Home", "Predict", "Model Info", "Download"])
 
-# Top bar info
-st.markdown("""
-    <div style="display:flex;justify-content:space-between;align-items:center;">
-      <h1 style="margin:0;padding:0;">🧬 Liver Disease Predictor</h1>
-      <div style="font-size:14px;color:#444">Interactive demo • Random Forest • Clean UI</div>
-    </div>
-""", unsafe_allow_html=True)
-
-# ----------------------
-# HOME PAGE
-# ----------------------
-if page == "Home":
-    st.markdown("<div class='app-overlay card'>", unsafe_allow_html=True)
-    st.markdown("### Welcome 👋")
+# ---------------------- HOME PAGE ----------------------
+if page == "🏠 Home":
+    st.markdown("<div class='main-card'>", unsafe_allow_html=True)
+    st.markdown("## 🧬 Liver Disease Prediction System")
+    
     st.write("""
-    This app predicts liver disease **category** using a Random Forest model trained on your dataset.
-    - Use the **Predict** page to enter patient values and get an instant prediction.
-    - The app will use a local image `liver_bg.jpg` as the background if present; otherwise a high-quality fallback image is shown.
+    A simple and clean interface to predict liver disease category using AI.
+    
+    Navigate to **Predict** from the left sidebar to enter patient values.
     """)
-    st.markdown("---")
-
-    # Quick dataset preview & stats
-    st.markdown("#### Dataset preview")
-    st.dataframe(df.head(8), use_container_width=True)
-
-    st.markdown("#### Feature summary")
-    st.write(df.describe().T)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ----------------------
-# PREDICTION PAGE
-# ----------------------
-elif page == "Predict":
-    st.markdown("<div class='app-overlay card'>", unsafe_allow_html=True)
-    st.markdown("### 🩺 Prediction")
 
-    st.write("Enter patient values below (numbers only). You can use the up/down arrows to set values quickly.")
+# ---------------------- PREDICT PAGE ----------------------
+elif page == "🔍 Predict":
+    st.markdown("<div class='main-card'>", unsafe_allow_html=True)
+    st.markdown("## 🔍 Predict Liver Condition")
 
-    # split into left (inputs) and right (live summary + result)
     left, right = st.columns([2, 1])
 
-    # Build inputs with sensible default values from dataset mean
-    defaults = df.drop(columns=["category"]).apply(pd.to_numeric, errors="coerce").fillna(0).mean().to_dict()
-
     with left:
-        st.markdown("#### Patient Inputs")
-        user_inputs = {}
-        for col in feature_names:
-            # sensible min, max based on data (if possible)
-            col_series = pd.to_numeric(df[col], errors="coerce")
-            cmin = float(col_series.min()) if pd.notna(col_series.min()) else 0.0
-            cmax = float(col_series.max()) if pd.notna(col_series.max()) else cmin + 100.0
-            cmean = float(defaults.get(col, 0.0))
+        inputs = {}
+        for col in features:
+            inputs[col] = st.number_input(col.replace("_", " ").title(), value=None, step=0.1)
 
-            # number input
-            user_inputs[col] = st.number_input(
-                label=col.replace("_", " ").title(),
-                value=round(cmean, 2),
-                min_value=0.0,
-                step=0.1,
-                format="%.3f"
-            )
+    predict_btn = st.button("Predict Now", use_container_width=True)
 
-        st.markdown("---")
-        submitted = st.button("🔍 Predict")
+    if predict_btn:
+        if None in inputs.values():
+            st.error("❗ Please fill **all fields** before predicting.")
+        else:
+            ip = pd.DataFrame([inputs])
 
-    with right:
-        st.markdown("#### Patient Summary")
-        st.json(user_inputs)
+            ip = ip.apply(pd.to_numeric, errors="coerce").fillna(ip.mean())
+            scaled = scaler.transform(ip.values)
 
-        st.markdown("#### Prediction Result")
-        # placeholder for result
-        result_box = st.empty()
-        prob_box = st.empty()
-
-    # After submit -> predict
-    if submitted:
-        try:
-            input_df = pd.DataFrame([user_inputs], columns=feature_names)
-            input_df = input_df.apply(pd.to_numeric, errors="coerce").fillna(input_df.mean())
-
-            X_scaled = scaler.transform(input_df.values)
-            pred_proba = model.predict_proba(X_scaled)[0] if hasattr(model, "predict_proba") else None
-            pred = model.predict(X_scaled)[0]
+            pred = model.predict(scaled)[0]
             label = label_encoder.inverse_transform([pred])[0]
 
-            # display
-            if pred_proba is not None:
-                confidence = float(np.max(pred_proba))
-                prob_box.info(f"Confidence: {confidence:.2%}")
+            st.markdown("### Result:")
+            if str(label).lower() in ["healthy", "normal", "no"]:
+                st.markdown(f"<div class='result-good'>🟢 {label}</div>", unsafe_allow_html=True)
             else:
-                prob_box.info("Confidence: (model does not support predict_proba)")
-
-            if isinstance(label, str) and label.lower() in ["healthy", "normal", "no"]:
-                result_box.markdown(f"<div class='result-good'>🟢 Prediction: **{label}**</div>", unsafe_allow_html=True)
-            else:
-                result_box.markdown(f"<div class='result-bad'>🔴 Prediction: **{label}**</div>", unsafe_allow_html=True)
-
-        except Exception as e:
-            st.error(f"Prediction failed: {e}")
+                st.markdown(f"<div class='result-bad'>🔴 {label}</div>", unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ----------------------
-# MODEL INFO PAGE
-# ----------------------
-elif page == "Model Info":
-    st.markdown("<div class='app-overlay card'>", unsafe_allow_html=True)
-    st.markdown("### 📊 Model & Dataset Info")
 
-    st.write("**Trained model:** RandomForestClassifier")
-    st.write(f"**Features used ({len(feature_names)}):** {', '.join(feature_names)}")
-    st.write(f"**Target classes ({len(class_names)}):** {', '.join(class_names)}")
-    st.write("**Quick metrics:**")
-    st.metric("Train accuracy", f"{metrics['train_score']:.3f}")
-    st.metric("Test accuracy", f"{metrics['test_score']:.3f}")
+# ---------------------- MODEL INFO PAGE ----------------------
+elif page == "📊 Model Info":
+    st.markdown("<div class='main-card'>", unsafe_allow_html=True)
+    st.markdown("## 📊 Model Information")
 
-    st.markdown("#### Raw dataset head")
-    st.dataframe(df.head(12), use_container_width=True)
+    st.write("**Model:** RandomForestClassifier (300 trees, depth 12)")
+    st.write(f"**Features:** {len(features)}")
+    st.write(", ".join(features))
 
     st.markdown("</div>", unsafe_allow_html=True)
-
-# ----------------------
-# DOWNLOAD PAGE (Export)
-# ----------------------
-elif page == "Download":
-    st.markdown("<div class='app-overlay card'>", unsafe_allow_html=True)
-    st.markdown("### 📥 Export & Download")
-
-    st.write("You can download a small sample of the dataset or the trained model (pickles).")
-
-    if st.button("Download sample CSV (first 100 rows)"):
-        csv_bytes = df.head(100).to_csv(index=False).encode("utf-8")
-        st.download_button("Click to download CSV", data=csv_bytes, file_name="project_sample.csv", mime="text/csv")
-
-    # Model export (pickl
-
