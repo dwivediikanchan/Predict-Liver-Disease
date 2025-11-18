@@ -178,4 +178,4 @@ elif page == "🩺 Prediction":
 # ABOUT MODEL
 # -----------------------------------------
 elif page == "📊 About Model":
-    st.markdown("<div class='main-title'>📊 Model Information</div>"), unsafe_allow_html=True
+    st.markdown("<div class='main-title'>📊 Model Information</div>", unsafe_allow_html=True)
