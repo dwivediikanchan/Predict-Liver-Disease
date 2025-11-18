@@ -18,7 +18,7 @@ def load_data():
 def train_model(df):
     # Encoding Target
     le = LabelEncoder()
-    df["Dataset"] = le.fit_transform(df["Dataset"])
+    df['category'] = le.fit_transform(df['category'])
 
     # Splitting X & Y
     X = df.drop('category', axis=1)
