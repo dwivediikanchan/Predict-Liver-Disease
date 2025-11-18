@@ -12,7 +12,7 @@ from sklearn.ensemble import RandomForestClassifier
 # -------------------------
 # Page config
 # -------------------------
-st.set_page_config(page_title="Animated Liver AI", page_icon="🧬", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Liver Disease Prediction", page_icon="🧬", layout="wide", initial_sidebar_state="expanded")
 
 # -------------------------
 # Helper: load dataset & model (cached)
@@ -227,9 +227,9 @@ with c1:
         """
         <div class="topbar fade-in">
           <div class="brand">
-            <div class="logo">AI</div>
+            <div class="logo">🩺</div>
             <div>
-              <div class="title">Ultra Animated Liver AI</div>
+              <div class="title">Liver disease Prediction</div>
               <div class="typing">Detecting liver risk with modern ML</div>
             </div>
           </div>
@@ -264,7 +264,7 @@ page = st.sidebar.radio(
 # -------------------------
 if page == "🏠 Home":
     st.markdown("<div class='card fade-in'>", unsafe_allow_html=True)
-    st.markdown("<h2 style='color:#e8fbff;margin:6px;'>🫀 About Liver Disease</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color:#e8fbff;margin:6px;'>About Liver Disease</h2>", unsafe_allow_html=True)
     st.write(
         """
         **Liver disease** covers many conditions that damage the liver. The liver filters blood, stores energy,
@@ -294,10 +294,10 @@ if page == "🏠 Home":
             <h3 style="color:#cfefff">Why early testing matters</h3>
             <p style="color:#dff8ff">
               Early detection lets clinicians act earlier, improving outcomes and preventing progression to cirrhosis.
-              Use the Predict panel to input test results and obtain an AI-informed risk assessment.
+              Use the Predict panel to input test results.
             </p>
             <div style="margin-top:8px;">
-              <span class="glow-badge">AI-powered</span>
+              <span class="glow-badge">Machine Learning powered</span>
               <span style="display:inline-block;width:10px"></span>
               <span class="glow-badge">Fast</span>
             </div>
