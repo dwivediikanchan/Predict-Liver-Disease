@@ -21,8 +21,8 @@ def train_model(df):
     df["Dataset"] = le.fit_transform(df["Dataset"])
 
     # Splitting X & Y
-    X = df.drop("Dataset", axis=1)
-    y = df["Dataset"]
+    X = df.drop('category', axis=1)
+    y = df['category']
 
     # Scaling
     scaler = StandardScaler()
