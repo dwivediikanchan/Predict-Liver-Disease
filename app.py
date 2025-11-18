@@ -10,7 +10,7 @@ from sklearn.ensemble import RandomForestClassifier
 # -----------------------------
 @st.cache_data
 def load_data():
-    df = pd.read_csv("project-data.csv", sep=';')
+    df = pd.read_csv("C:\Users\HP\Desktop\Predict Liver Disease\project-data.csv", sep=';')
     df.columns = df.columns.str.strip()
     return df
 
