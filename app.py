@@ -13,7 +13,7 @@ from sklearn.ensemble import RandomForestClassifier
 # -------------------------
 # PAGE CONFIG
 # -------------------------
-st.set_page_config(page_title="Ultra Liver AI", page_icon="🧬", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Liver Disease Prediction", page_icon="🧬", layout="wide", initial_sidebar_state="expanded")
 
 # -------------------------
 # STYLES & ANIMATIONS (ULTRA PREMIUM)
@@ -262,9 +262,9 @@ with top_left:
     st.markdown("""
     <div class="topbar">
       <div class="brand">
-        <div class="logo">AI</div>
+        <div class="logo">🩺</div>
         <div>
-          <div class="title">Ultra Liver AI</div>
+          <div class="title">Liver Disease Prediction</div>
           <div class="typing">Predicting liver health, responsibly</div>
         </div>
       </div>
@@ -283,7 +283,7 @@ with top_right:
 # Sidebar navigation (icons)
 # -------------------------
 st.sidebar.markdown("<div class='sidebar-title'>🧭 Ultra Menu</div>", unsafe_allow_html=True)
-page = st.sidebar.radio("", options=["Home","Predict","Model"], index=0)
+page = st.sidebar.radio("", options=["🧪Home","🔍Predict","🔍Model"], index=0)
 
 # -------------------------
 # HOME PAGE (disease info, NO dataset preview)
