@@ -283,7 +283,7 @@ with top_right:
 # Sidebar navigation (icons)
 # -------------------------
 st.sidebar.markdown("<div class='sidebar-title'>🧭 Ultra Menu</div>", unsafe_allow_html=True)
-page = st.sidebar.radio("", options=["🧪Home","🔍Predict","🔍Model"], index=0)
+page = st.sidebar.radio("", options=["🧪Home","🔍Predict","📊Model"], index=0)
 
 # -------------------------
 # HOME PAGE (disease info, NO dataset preview)
